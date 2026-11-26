@@ -45,6 +45,16 @@ dependencies {
     implementation(libs.minio)
     implementation(libs.logback)
 
+    // Security: raise vulnerable transitive dependencies (Netty from Ktor/Lettuce,
+    // Jackson, BouncyCastle and Guava from the MinIO SDK, snappy from Lettuce).
+    implementation(platform(libs.netty.bom))
+    implementation(platform(libs.jackson.bom))
+    constraints {
+        implementation(libs.bouncycastle.bcprov) { because("CVE-2025-14813 and others, fixed in 1.85+") }
+        implementation(libs.guava) { because("vulnerable versions come from the MinIO SDK") }
+        implementation(libs.snappy.java) { because("CVE-2026-93451, CVE-2026-108106") }
+    }
+
     testImplementation(kotlin("test"))
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.testcontainers.postgresql)
