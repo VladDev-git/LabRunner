@@ -27,11 +27,14 @@ data class UiState(
 ) {
     val selectedAssignment: AssignmentDto? get() = assignments.firstOrNull { it.id == selectedAssignmentId }
     val canSubmit: Boolean
-        get() = !isSubmitting && selectedAssignmentId != null && studentName.isNotBlank() &&
-            (repoUrl.isNotBlank() || sourceCode.isNotBlank())
+        get() =
+            !isSubmitting && selectedAssignmentId != null && studentName.isNotBlank() &&
+                (repoUrl.isNotBlank() || sourceCode.isNotBlank())
 }
 
-class LabRunnerViewModel(private val api: LabRunnerApi) : ViewModel() {
+class LabRunnerViewModel(
+    private val api: LabRunnerApi,
+) : ViewModel() {
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state.asStateFlow()
 
@@ -55,15 +58,17 @@ class LabRunnerViewModel(private val api: LabRunnerApi) : ViewModel() {
                         s.copy(assignments = list, selectedAssignmentId = s.selectedAssignmentId ?: list.firstOrNull()?.id)
                     }
                     loadSubmissions()
-                }
-                .onFailure { e -> _state.update { it.copy(error = "API недоступний: ${e.message}") } }
+                }.onFailure { e -> _state.update { it.copy(error = "API недоступний: ${e.message}") } }
             _state.update { it.copy(isLoading = false) }
         }
     }
 
     fun onStudentNameChange(value: String) = _state.update { it.copy(studentName = value) }
+
     fun onRepoUrlChange(value: String) = _state.update { it.copy(repoUrl = value) }
+
     fun onSourceCodeChange(value: String) = _state.update { it.copy(sourceCode = value) }
+
     fun onAssignmentSelected(id: Long) = _state.update { it.copy(selectedAssignmentId = id) }
 
     fun submit() {

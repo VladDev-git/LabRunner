@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "ua.labrunner"
-version = "0.2.0"
+version = "0.3.0"
 
 kotlin {
     compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
@@ -21,6 +21,12 @@ java {
 application {
     applicationName = "api"
     mainClass.set("ua.labrunner.api.ApplicationKt")
+}
+
+// Runtime dependencies are pinned in gradle.lockfile: reproducible images and
+// a manifest that Trivy can scan for known vulnerabilities (SCA).
+configurations.runtimeClasspath {
+    resolutionStrategy.activateDependencyLocking()
 }
 
 dependencies {
@@ -38,4 +44,15 @@ dependencies {
     implementation(libs.lettuce)
     implementation(libs.minio)
     implementation(libs.logback)
+
+    testImplementation(kotlin("test"))
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.testcontainers.junit)
+    testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+tasks.test {
+    useJUnitPlatform()
+    testLogging { events("passed", "skipped", "failed") }
 }

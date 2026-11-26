@@ -51,21 +51,23 @@ import ua.labrunner.contracts.SubmissionDto
 import ua.labrunner.contracts.SubmissionStatus
 
 // Code and URLs must be typed exactly: no autocorrection or automatic capital letters.
-private val CodeKeyboard = KeyboardOptions(
-    capitalization = KeyboardCapitalization.None,
-    autoCorrectEnabled = false,
-    keyboardType = KeyboardType.Ascii,
-)
+private val CodeKeyboard =
+    KeyboardOptions(
+        capitalization = KeyboardCapitalization.None,
+        autoCorrectEnabled = false,
+        keyboardType = KeyboardType.Ascii,
+    )
 
-private val LabRunnerColors = lightColorScheme(
-    primary = Color(0xFF1168BD),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFD6E6F8),
-    secondary = Color(0xFF08427B),
-    surface = Color(0xFFFFFFFF),
-    background = Color(0xFFF4F6FA),
-    surfaceVariant = Color(0xFFEFF2F7),
-)
+private val LabRunnerColors =
+    lightColorScheme(
+        primary = Color(0xFF1168BD),
+        onPrimary = Color.White,
+        primaryContainer = Color(0xFFD6E6F8),
+        secondary = Color(0xFF08427B),
+        surface = Color(0xFFFFFFFF),
+        background = Color(0xFFF4F6FA),
+        surfaceVariant = Color(0xFFEFF2F7),
+    )
 
 @Composable
 fun App() {
@@ -78,7 +80,10 @@ fun App() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LabRunnerScreen(state: UiState, vm: LabRunnerViewModel) {
+private fun LabRunnerScreen(
+    state: UiState,
+    vm: LabRunnerViewModel,
+) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -90,10 +95,11 @@ private fun LabRunnerScreen(state: UiState, vm: LabRunnerViewModel) {
                     }
                 },
                 actions = { TextButton(onClick = vm::refresh) { Text("Оновити", color = Color.White) } },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = Color.White,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = Color.White,
+                    ),
             )
         },
     ) { padding ->
@@ -181,7 +187,10 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun Banner(text: String, isError: Boolean) {
+private fun Banner(
+    text: String,
+    isError: Boolean,
+) {
     Surface(
         color = if (isError) Color(0xFFFDECEA) else Color(0xFFE7F5EC),
         shape = RoundedCornerShape(8.dp),
@@ -197,12 +206,17 @@ private fun Banner(text: String, isError: Boolean) {
 }
 
 @Composable
-private fun AssignmentCard(assignment: AssignmentDto, selected: Boolean, onClick: () -> Unit) {
+private fun AssignmentCard(
+    assignment: AssignmentDto,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-        ),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+            ),
         border = if (selected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
@@ -247,24 +261,29 @@ private fun SubmissionCard(submission: SubmissionDto) {
 
 @Composable
 private fun StatusBadge(status: SubmissionStatus) {
-    val (label, color) = when (status) {
-        SubmissionStatus.QUEUED -> "У черзі" to Color(0xFF6B7280)
-        SubmissionStatus.RUNNING -> "Перевіряється" to Color(0xFF1168BD)
-        SubmissionStatus.PASSED -> "Зараховано" to Color(0xFF1E8E3E)
-        SubmissionStatus.FAILED -> "Є помилки" to Color(0xFFC26A00)
-        SubmissionStatus.ERROR -> "Помилка" to Color(0xFFC5221F)
-    }
+    val (label, color) =
+        when (status) {
+            SubmissionStatus.QUEUED -> "У черзі" to Color(0xFF6B7280)
+            SubmissionStatus.RUNNING -> "Перевіряється" to Color(0xFF1168BD)
+            SubmissionStatus.PASSED -> "Зараховано" to Color(0xFF1E8E3E)
+            SubmissionStatus.FAILED -> "Є помилки" to Color(0xFFC26A00)
+            SubmissionStatus.ERROR -> "Помилка" to Color(0xFFC5221F)
+        }
     Tag(label, color)
 }
 
 @Composable
-private fun Tag(text: String, color: Color) {
+private fun Tag(
+    text: String,
+    color: Color,
+) {
     Text(
         text,
         color = Color.White,
         style = MaterialTheme.typography.labelSmall,
-        modifier = Modifier
-            .background(color, RoundedCornerShape(50))
-            .padding(horizontal = 8.dp, vertical = 3.dp),
+        modifier =
+            Modifier
+                .background(color, RoundedCornerShape(50))
+                .padding(horizontal = 8.dp, vertical = 3.dp),
     )
 }

@@ -1,7 +1,9 @@
 package ua.labrunner.app
 
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.call.body
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
@@ -21,10 +23,14 @@ import ua.labrunner.contracts.ErrorDto
 import ua.labrunner.contracts.SubmissionDto
 
 /** Thin client for the Core API; DTOs come from :shared:contracts (same classes as on the server). */
-class LabRunnerApi(baseUrl: String) {
+class LabRunnerApi(
+    baseUrl: String,
+    // null = platform engine (OkHttp / Darwin); tests pass a MockEngine.
+    engine: HttpClientEngine? = null,
+) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    private val client = HttpClient {
+    private val config: HttpClientConfig<*>.() -> Unit = {
         install(ContentNegotiation) { json(json) }
         install(HttpTimeout) {
             requestTimeoutMillis = 10_000
@@ -34,16 +40,19 @@ class LabRunnerApi(baseUrl: String) {
         expectSuccess = false
     }
 
+    private val client = if (engine != null) HttpClient(engine, config) else HttpClient(config)
+
     suspend fun assignments(): List<AssignmentDto> = client.get("api/v1/assignments").checked()
 
     suspend fun submissions(student: String): List<SubmissionDto> =
         client.get("api/v1/submissions") { parameter("student", student) }.checked()
 
     suspend fun submit(request: CreateSubmissionRequest): SubmissionDto =
-        client.post("api/v1/submissions") {
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }.checked()
+        client
+            .post("api/v1/submissions") {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }.checked()
 
     private suspend inline fun <reified T> io.ktor.client.statement.HttpResponse.checked(): T {
         if (status.isSuccess()) return body()
@@ -52,4 +61,6 @@ class LabRunnerApi(baseUrl: String) {
     }
 }
 
-class ApiException(message: String) : Exception(message)
+class ApiException(
+    message: String,
+) : Exception(message)

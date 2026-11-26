@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "ua.labrunner"
-version = "0.2.0"
+version = "0.3.0"
 
 kotlin {
     compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
@@ -23,6 +23,11 @@ application {
     mainClass.set("ua.labrunner.orchestrator.MainKt")
 }
 
+// Runtime dependencies are pinned in gradle.lockfile (reproducible builds, SCA by Trivy).
+configurations.runtimeClasspath {
+    resolutionStrategy.activateDependencyLocking()
+}
+
 dependencies {
     implementation(project(":shared:contracts"))
     implementation(libs.kotlinx.coroutines.core)
@@ -33,9 +38,12 @@ dependencies {
     implementation(libs.logback)
 
     testImplementation(kotlin("test"))
-    testImplementation(platform("org.junit:junit-bom:5.12.2"))
+    testImplementation(platform(libs.junit.bom))
     // Gradle 9 no longer adds the JUnit Platform launcher automatically.
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
-tasks.test { useJUnitPlatform() }
+tasks.test {
+    useJUnitPlatform()
+    testLogging { events("passed", "skipped", "failed") }
+}

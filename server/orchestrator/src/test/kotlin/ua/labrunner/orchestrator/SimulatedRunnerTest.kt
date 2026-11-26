@@ -11,8 +11,11 @@ import kotlin.test.assertTrue
 class SimulatedRunnerTest {
     private val runner = SimulatedRunner()
 
-    private fun job(language: Language, code: String? = null, repo: String? = null) =
-        SubmissionJob(UUID.randomUUID(), SubmissionStatus.QUEUED, language, maxScore = 10, repoUrl = repo, sourceCode = code)
+    private fun job(
+        language: Language,
+        code: String? = null,
+        repo: String? = null,
+    ) = SubmissionJob(UUID.randomUUID(), SubmissionStatus.QUEUED, language, maxScore = 10, repoUrl = repo, sourceCode = code)
 
     @Test
     fun `valid kotlin program gets full score`() {

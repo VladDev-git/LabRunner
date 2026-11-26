@@ -20,9 +20,14 @@ data class OrchestratorConfig(
 ) {
     companion object {
         fun fromEnv(env: Map<String, String> = System.getenv()): OrchestratorConfig {
-            fun required(name: String) = env[name]?.takeIf { it.isNotBlank() }
-                ?: error("Environment variable $name is required")
-            fun optional(name: String, default: String) = env[name]?.takeIf { it.isNotBlank() } ?: default
+            fun required(name: String) =
+                env[name]?.takeIf { it.isNotBlank() }
+                    ?: error("Environment variable $name is required")
+
+            fun optional(
+                name: String,
+                default: String,
+            ) = env[name]?.takeIf { it.isNotBlank() } ?: default
 
             return OrchestratorConfig(
                 dbUrl = required("DB_URL"),
