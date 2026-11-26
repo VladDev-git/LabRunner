@@ -12,8 +12,8 @@ ENV LABRUNNER_SERVER_ONLY=true \
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
 COPY gradle ./gradle
 COPY shared/contracts/build.gradle.kts shared/contracts/
-COPY server/api/build.gradle.kts server/api/
-COPY server/orchestrator/build.gradle.kts server/orchestrator/
+COPY server/api/build.gradle.kts server/api/gradle.lockfile server/api/
+COPY server/orchestrator/build.gradle.kts server/orchestrator/gradle.lockfile server/orchestrator/
 RUN chmod +x gradlew
 RUN --mount=type=cache,target=/gradle-home,sharing=locked \
     ./gradlew --quiet :server:api:dependencies --configuration runtimeClasspath > /dev/null
@@ -30,7 +30,8 @@ RUN addgroup -S labrunner && adduser -S -D -H -u 10001 -G labrunner labrunner
 WORKDIR /app
 COPY --from=builder --chown=labrunner:labrunner /workspace/server/api/build/install/api/ ./
 
-USER labrunner
+# Numeric UID: Kubernetes runAsNonRoot can verify it without /etc/passwd.
+USER 10001
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
 EXPOSE 8080
 # Exec form: the start script execs java, so the JVM is PID 1 and receives SIGTERM.

@@ -1,5 +1,7 @@
 # LabRunner
 
+[![LabRunner CI](https://github.com/VladDev-git/LabRunner/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/VladDev-git/LabRunner/actions/workflows/ci.yml)
+
 Сервіс автоматизованої перевірки програмних завдань з мобільним клієнтом для Android та iOS (Kotlin Multiplatform).
 Навчальний проєкт з дисципліни «Життєвий цикл ПЗ та DevOps-технології» (ТНТУ, кафедра програмної інженерії).
 
@@ -81,10 +83,24 @@ docker-compose.yml   локальне середовище
 .env.example         шаблон конфігурації
 ```
 
+## CI (GitHub Actions)
+
+Конвеєр `.github/workflows/ci.yml` запускається для кожного Pull Request у `main`, для push у `main` і для тегів `vX.Y.Z`:
+
+| Етап | Джоба | Що перевіряє |
+|---|---|---|
+| 1 | Lint | ktlint, Android Lint, Hadolint |
+| 2 | Tests | unit + Testcontainers (PostgreSQL), Android unit-тести, debug APK |
+| 2 | iOS | тести на iOS-симуляторі, iOS-фреймворк (macOS) |
+| 3 | Security scan | Trivy: залежності (`gradle.lockfile`), конфігурації, секрети |
+| 4 | Build, scan & push | Docker-образ → Trivy → GHCR (`sha-<commit>`, SemVer) |
+
+Образи: `ghcr.io/vladdev-git/labrunner-api`, `ghcr.io/vladdev-git/labrunner-orchestrator`.
+
 ## Стан за лабораторними
 
 - [x] Лаба 1 — аналіз, вимоги, C4, ADR-0001…0003
 - [x] Лаба 2 — контейнеризація, Docker Compose, 12-Factor, ADR-0004
-- [ ] Лаба 3 — CI/CD
+- [x] Лаба 3 — CI: GitHub Actions, Quality Gates, Trivy, GHCR, ADR-0005
 - [ ] Лаба 4 — Kubernetes, IaC, sandbox у gVisor
 - [ ] Лаба 5 — моніторинг та спостережуваність
