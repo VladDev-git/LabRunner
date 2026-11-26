@@ -1,0 +1,135 @@
+# LabRunner — local environment (lab 2).
+# Usage:  cp .env.example .env  &&  docker compose up -d --build
+
+name: labrunner
+
+x-backend-env: &backend-env
+  DB_URL: jdbc:postgresql://db:5432/${DB_NAME}
+  DB_USER: ${DB_USER}
+  DB_PASSWORD: ${DB_PASSWORD}
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REDIS_PASSWORD: ${REDIS_PASSWORD}
+  S3_ENDPOINT: http://storage:9000
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+  S3_SECRET_KEY: ${S3_SECRET_KEY}
+  S3_BUCKET: ${S3_BUCKET}
+
+services:
+  # ---------- Backing services (only on the internal network) ----------
+  db:
+    image: postgres:16-alpine
+    container_name: labrunner-db
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks: [backend-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: labrunner-redis
+    # AOF persistence: queued submissions survive a Redis restart (ADR-0002).
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks: [backend-net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  storage:
+    # S3-compatible object storage. minio/minio images are no longer published,
+    # so RustFS (Apache 2.0) is used locally; production uses Cloud Storage (ADR-0004).
+    image: rustfs/rustfs:1.0.7
+    container_name: labrunner-storage
+    environment:
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY}
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ENABLE: "false"
+    volumes:
+      - storage_data:/data
+    networks: [backend-net]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9000/health >/dev/null 2>&1 || curl -fsS http://127.0.0.1:9000/health >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  # ---------- Application services ----------
+  api:
+    build:
+      context: .
+      dockerfile: server/api/Dockerfile
+    image: labrunner/api:0.2.0
+    container_name: labrunner-api
+    environment:
+      <<: *backend-env
+      PORT: "8080"
+    ports:
+      - "${API_PORT:-8080}:8080"
+    networks: [public-net, backend-net]
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      storage: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health | grep -q UP"]
+      interval: 10s
+      timeout: 3s
+      start_period: 30s
+      retries: 6
+    stop_grace_period: 20s
+    restart: unless-stopped
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: server/orchestrator/Dockerfile
+    image: labrunner/orchestrator:0.2.0
+    container_name: labrunner-orchestrator
+    environment:
+      <<: *backend-env
+      HEALTH_PORT: "8081"
+    networks: [backend-net]
+    depends_on:
+      # The API applies database migrations, so it must be healthy first.
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/health | grep -q UP"]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 6
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+networks:
+  # Only the API is attached here and publishes a port to the host.
+  public-net:
+    driver: bridge
+  # internal: no route to the outside world and no published ports.
+  backend-net:
+    driver: bridge
+    internal: true
+
+volumes:
+  pg_data:
+  redis_data:
+  storage_data:

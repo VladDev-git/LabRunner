@@ -1,0 +1,23 @@
+# Only the Gradle build of the server modules is needed inside the image.
+.git
+.github
+.gradle
+.idea
+.kotlin
+**/build
+**/out
+local.properties
+*.iml
+
+# Mobile client and documentation are not part of the server images
+composeApp
+iosApp
+docs
+
+# Secrets and local overrides never go into an image
+.env
+.env.*
+!.env.example
+
+*.md
+docker-compose*.yml
