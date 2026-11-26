@@ -16,12 +16,15 @@ import kotlin.math.roundToInt
  * mobile client will not change when the real sandbox replaces this class.
  */
 class SimulatedRunner {
-
-    fun check(job: SubmissionJob, durationMs: Long): TestReport {
-        val checks = buildList {
-            job.sourceCode?.let { addAll(checkSource(job.language, it)) }
-            job.repoUrl?.let { addAll(checkRepoUrl(it)) }
-        }
+    fun check(
+        job: SubmissionJob,
+        durationMs: Long,
+    ): TestReport {
+        val checks =
+            buildList {
+                job.sourceCode?.let { addAll(checkSource(job.language, it)) }
+                job.repoUrl?.let { addAll(checkRepoUrl(it)) }
+            }
         val passed = checks.count { it.passed }
         val score = if (checks.isEmpty()) 0 else (job.maxScore * passed.toDouble() / checks.size).roundToInt()
         return TestReport(
@@ -34,18 +37,23 @@ class SimulatedRunner {
         )
     }
 
-    internal fun checkSource(language: Language, code: String): List<CheckResult> {
+    internal fun checkSource(
+        language: Language,
+        code: String,
+    ): List<CheckResult> {
         val bytes = code.encodeToByteArray().size
-        val entryPoint = when (language) {
-            Language.KOTLIN -> Regex("""fun\s+main\s*\(""")
-            Language.PYTHON -> Regex("""(^|\n)\s*def\s+\w+\s*\(|print\s*\(""")
-            Language.CPP -> Regex("""int\s+main\s*\(""")
-        }
-        val forbidden = when (language) {
-            Language.KOTLIN -> listOf("ProcessBuilder", "Runtime.getRuntime", "System.exit")
-            Language.PYTHON -> listOf("import os", "import subprocess", "import socket", "__import__")
-            Language.CPP -> listOf("system(", "fork(", "<sys/socket.h>")
-        }.filter { it in code }
+        val entryPoint =
+            when (language) {
+                Language.KOTLIN -> Regex("""fun\s+main\s*\(""")
+                Language.PYTHON -> Regex("""(^|\n)\s*def\s+\w+\s*\(|print\s*\(""")
+                Language.CPP -> Regex("""int\s+main\s*\(""")
+            }
+        val forbidden =
+            when (language) {
+                Language.KOTLIN -> listOf("ProcessBuilder", "Runtime.getRuntime", "System.exit")
+                Language.PYTHON -> listOf("import os", "import subprocess", "import socket", "__import__")
+                Language.CPP -> listOf("system(", "fork(", "<sys/socket.h>")
+            }.filter { it in code }
 
         return listOf(
             CheckResult("Код не порожній", code.isNotBlank(), "${code.lines().size} рядків"),
@@ -66,7 +74,13 @@ class SimulatedRunner {
 
     internal fun checkRepoUrl(raw: String): List<CheckResult> {
         val uri = runCatching { URI(raw.trim()) }.getOrNull()
-        val segments = uri?.path?.trim('/')?.split('/')?.filter { it.isNotBlank() }.orEmpty()
+        val segments =
+            uri
+                ?.path
+                ?.trim('/')
+                ?.split('/')
+                ?.filter { it.isNotBlank() }
+                .orEmpty()
         return listOf(
             CheckResult("URL у форматі HTTPS", uri?.scheme == "https", raw),
             CheckResult("Дозволений Git-хостинг", uri?.host in ALLOWED_HOSTS, uri?.host ?: "—"),

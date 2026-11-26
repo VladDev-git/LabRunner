@@ -30,8 +30,6 @@ import java.util.UUID
 
 private val log = LoggerFactory.getLogger("ua.labrunner.api.Application")
 
-private const val MAX_SOURCE_BYTES = 64 * 1024
-
 fun main() {
     val config = AppConfig.fromEnv()
 
@@ -43,9 +41,10 @@ fun main() {
     val storage = ReportStorage(config)
     storage.ensureBucket()
 
-    val server = embeddedServer(Netty, port = config.port, host = "0.0.0.0") {
-        module(config, database, queue, storage)
-    }
+    val server =
+        embeddedServer(Netty, port = config.port, host = "0.0.0.0") {
+            module(config, database, queue, storage)
+        }
 
     // Factor IX (disposability): on SIGTERM / SIGINT finish in-flight requests,
     // then release the DB pool and the Redis connection (see ApplicationStopped).
@@ -60,9 +59,19 @@ fun main() {
     server.start(wait = true)
 }
 
-fun Application.module(config: AppConfig, database: Database, queue: SubmissionQueue, storage: ReportStorage) {
+fun Application.module(
+    config: AppConfig,
+    database: Database,
+    queue: SubmissionQueue,
+    storage: ReportStorage,
+) {
     install(ContentNegotiation) {
-        json(Json { ignoreUnknownKeys = true; encodeDefaults = true })
+        json(
+            Json {
+                ignoreUnknownKeys = true
+                encodeDefaults = true
+            },
+        )
     }
     install(CallLogging) {
         level = Level.INFO
@@ -104,17 +113,12 @@ fun Application.module(config: AppConfig, database: Database, queue: SubmissionQ
             }
 
             post("/submissions") {
-                val req = call.receive<CreateSubmissionRequest>()
-                val repoUrl = req.repoUrl?.trim()?.takeIf { it.isNotEmpty() }
-                val code = req.sourceCode?.takeIf { it.isNotBlank() }
-                require(req.studentName.isNotBlank()) { "studentName must not be blank" }
-                require(repoUrl != null || code != null) { "repoUrl or sourceCode is required" }
-                require((code?.encodeToByteArray()?.size ?: 0) <= MAX_SOURCE_BYTES) { "sourceCode is larger than 64 KiB" }
-                requireNotNull(database.findAssignment(req.assignmentId)) { "assignment ${req.assignmentId} not found" }
+                val valid = SubmissionValidator.validate(call.receive<CreateSubmissionRequest>())
+                requireNotNull(database.findAssignment(valid.assignmentId)) { "assignment ${valid.assignmentId} not found" }
 
                 // The submission is stored first and only then queued, so a crash
                 // between the two steps never loses an accepted submission.
-                val submission = database.createSubmission(req.assignmentId, req.studentName.trim(), repoUrl, code)
+                val submission = database.createSubmission(valid.assignmentId, valid.studentName, valid.repoUrl, valid.sourceCode)
                 val messageId = queue.publish(submission.id)
                 log.info("Submission {} queued as stream message {}", submission.id, messageId)
                 call.respond(HttpStatusCode.Accepted, submission)

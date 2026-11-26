@@ -21,5 +21,12 @@ kotlin {
         commonMain.dependencies {
             api(libs.kotlinx.serialization.json)
         }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
     }
+}
+
+tasks.withType<Test>().configureEach {
+    testLogging { events("passed", "skipped", "failed") }
 }

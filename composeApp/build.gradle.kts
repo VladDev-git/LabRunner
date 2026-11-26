@@ -42,19 +42,33 @@ kotlin {
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
         }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.ktor.client.mock)
+            implementation(libs.kotlinx.coroutines.test)
+        }
     }
 }
 
 android {
     namespace = "ua.labrunner.app"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
+    compileSdk =
+        libs.versions.android.compileSdk
+            .get()
+            .toInt()
 
     defaultConfig {
         applicationId = "ua.labrunner.app"
-        minSdk = libs.versions.android.minSdk.get().toInt()
-        targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 2
-        versionName = "0.2.0"
+        minSdk =
+            libs.versions.android.minSdk
+                .get()
+                .toInt()
+        targetSdk =
+            libs.versions.android.targetSdk
+                .get()
+                .toInt()
+        versionCode = 3
+        versionName = "0.3.0"
 
         // Factor III for the client: the API address is build configuration, not code.
         // Override with -Plabrunner.apiUrl=https://... (default: host machine seen from the emulator).
@@ -70,5 +84,12 @@ android {
     }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1,INDEX.LIST,io.netty.versions.properties}" }
+    }
+    // Android Lint is a quality gate in CI: any error fails the build.
+    lint {
+        abortOnError = true
+        checkDependencies = true
+        sarifReport = true
+        htmlReport = true
     }
 }

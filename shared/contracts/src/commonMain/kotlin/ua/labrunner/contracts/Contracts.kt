@@ -6,9 +6,14 @@ import kotlinx.serialization.Serializable
 /** Programming language / runtime image used to check a submission. */
 @Serializable
 enum class Language {
-    @SerialName("kotlin") KOTLIN,
-    @SerialName("python") PYTHON,
-    @SerialName("cpp") CPP,
+    @SerialName("kotlin")
+    KOTLIN,
+
+    @SerialName("python")
+    PYTHON,
+
+    @SerialName("cpp")
+    CPP,
 }
 
 @Serializable
@@ -90,7 +95,9 @@ data class HealthDto(
 )
 
 @Serializable
-data class ErrorDto(val error: String)
+data class ErrorDto(
+    val error: String,
+)
 
 /** Names shared by the API (producer) and the orchestrator (consumer). */
 object QueueNames {

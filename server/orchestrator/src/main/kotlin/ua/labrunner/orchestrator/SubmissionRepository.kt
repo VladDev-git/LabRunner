@@ -15,46 +15,58 @@ data class SubmissionJob(
     val sourceCode: String?,
 )
 
-class SubmissionRepository(config: OrchestratorConfig) : AutoCloseable {
-    private val dataSource = HikariDataSource(
-        HikariConfig().apply {
-            jdbcUrl = config.dbUrl
-            username = config.dbUser
-            password = config.dbPassword
-            maximumPoolSize = 4
-            poolName = "orchestrator-pool"
-        },
-    )
+class SubmissionRepository(
+    config: OrchestratorConfig,
+) : AutoCloseable {
+    private val dataSource =
+        HikariDataSource(
+            HikariConfig().apply {
+                jdbcUrl = config.dbUrl
+                username = config.dbUser
+                password = config.dbPassword
+                maximumPoolSize = 4
+                poolName = "orchestrator-pool"
+            },
+        )
 
-    fun find(id: UUID): SubmissionJob? = dataSource.connection.use { c ->
-        c.prepareStatement(
-            """
-            SELECT s.id, s.status, s.repo_url, s.source_code, a.language, a.max_score
-            FROM submissions s JOIN assignments a ON a.id = s.assignment_id
-            WHERE s.id = ?
-            """.trimIndent(),
-        ).use { ps ->
-            ps.setObject(1, id)
-            ps.executeQuery().use { rs ->
-                if (!rs.next()) return@use null
-                SubmissionJob(
-                    id = rs.getObject("id", UUID::class.java),
-                    status = SubmissionStatus.valueOf(rs.getString("status")),
-                    language = Language.valueOf(rs.getString("language").uppercase()),
-                    maxScore = rs.getInt("max_score"),
-                    repoUrl = rs.getString("repo_url"),
-                    sourceCode = rs.getString("source_code"),
-                )
-            }
+    fun find(id: UUID): SubmissionJob? =
+        dataSource.connection.use { c ->
+            c
+                .prepareStatement(
+                    """
+                    SELECT s.id, s.status, s.repo_url, s.source_code, a.language, a.max_score
+                    FROM submissions s JOIN assignments a ON a.id = s.assignment_id
+                    WHERE s.id = ?
+                    """.trimIndent(),
+                ).use { ps ->
+                    ps.setObject(1, id)
+                    ps.executeQuery().use { rs ->
+                        if (!rs.next()) return@use null
+                        SubmissionJob(
+                            id = rs.getObject("id", UUID::class.java),
+                            status = SubmissionStatus.valueOf(rs.getString("status")),
+                            language = Language.valueOf(rs.getString("language").uppercase()),
+                            maxScore = rs.getInt("max_score"),
+                            repoUrl = rs.getString("repo_url"),
+                            sourceCode = rs.getString("source_code"),
+                        )
+                    }
+                }
         }
-    }
 
     /** Moves QUEUED -> RUNNING. Returns false if the submission was already finished (idempotency). */
-    fun markRunning(id: UUID): Boolean = update(
-        "UPDATE submissions SET status = 'RUNNING', updated_at = now() WHERE id = ? AND status IN ('QUEUED', 'RUNNING')",
-    ) { it.setObject(1, id) } == 1
+    fun markRunning(id: UUID): Boolean =
+        update(
+            "UPDATE submissions SET status = 'RUNNING', updated_at = now() WHERE id = ? AND status IN ('QUEUED', 'RUNNING')",
+        ) { it.setObject(1, id) } == 1
 
-    fun finish(id: UUID, status: SubmissionStatus, score: Int?, summary: String, reportKey: String?) {
+    fun finish(
+        id: UUID,
+        status: SubmissionStatus,
+        score: Int?,
+        summary: String,
+        reportKey: String?,
+    ) {
         update(
             "UPDATE submissions SET status = ?, score = ?, summary = ?, report_key = ?, updated_at = now() WHERE id = ?",
         ) {
@@ -68,8 +80,16 @@ class SubmissionRepository(config: OrchestratorConfig) : AutoCloseable {
 
     fun isHealthy(): Boolean = runCatching { dataSource.connection.use { it.isValid(2) } }.getOrDefault(false)
 
-    private fun update(sql: String, bind: (java.sql.PreparedStatement) -> Unit): Int =
-        dataSource.connection.use { c -> c.prepareStatement(sql).use { ps -> bind(ps); ps.executeUpdate() } }
+    private fun update(
+        sql: String,
+        bind: (java.sql.PreparedStatement) -> Unit,
+    ): Int =
+        dataSource.connection.use { c ->
+            c.prepareStatement(sql).use { ps ->
+                bind(ps)
+                ps.executeUpdate()
+            }
+        }
 
     override fun close() = dataSource.close()
 }
