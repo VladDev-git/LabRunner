@@ -1,0 +1,26 @@
+#cloud-config
+# Minimal first boot: admin user with SSH key only. Everything else is Ansible's job.
+hostname: ${hostname}
+fqdn: ${hostname}.labrunner.lab
+manage_etc_hosts: true
+
+users:
+  - name: ${admin_username}
+    gecos: LabRunner admin (Ansible)
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+
+disable_root: true
+ssh_pwauth: false
+
+package_update: true
+packages:
+  - qemu-guest-agent
+  - python3
+
+runcmd:
+  - systemctl enable --now qemu-guest-agent
