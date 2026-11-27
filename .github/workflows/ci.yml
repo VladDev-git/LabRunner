@@ -56,6 +56,38 @@ jobs:
           name: lint-reports
           path: "**/build/reports/"
 
+  # ---------- Stage 1b: Infrastructure as Code (offline checks, no cloud access) ----------
+  iac:
+    name: IaC validate (Terraform, Ansible)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.17.2"
+      # Both targets are validated: kvm (applied in lab 4) and azure (ready for a subscription).
+      - name: terraform fmt / init / validate
+        working-directory: infra/terraform
+        run: |
+          terraform fmt -recursive -check -diff
+          for dir in kvm azure; do
+            echo "::group::terraform validate ($dir)"
+            terraform -chdir="$dir" init -backend=false -input=false
+            terraform -chdir="$dir" validate
+            echo "::endgroup::"
+          done
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - name: ansible-lint (production profile)
+        working-directory: infra/ansible
+        run: |
+          pip install --quiet ansible-lint
+          ansible-galaxy collection install -r requirements.yml
+          ansible-playbook -i localhost, --syntax-check playbook.yml
+          ansible-lint --profile production playbook.yml
+
   # ---------- Stage 2: automated tests ----------
   test:
     name: Tests (server, contracts, Android)

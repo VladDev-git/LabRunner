@@ -78,6 +78,8 @@ server/api/          Ktor Core API + Dockerfile
 server/orchestrator/ Runner Orchestrator + Dockerfile
 shared/contracts/    спільні DTO
 docs/adr/            Architecture Decision Records
+infra/terraform/     Terraform: kvm (локальна VM) і azure
+infra/ansible/       Ansible: налаштування Docker-хоста
 docs/architecture/   діаграми C4 / Deployment
 docker-compose.yml   локальне середовище
 .env.example         шаблон конфігурації
@@ -97,10 +99,28 @@ docker-compose.yml   локальне середовище
 
 Образи: `ghcr.io/vladdev-git/labrunner-api`, `ghcr.io/vladdev-git/labrunner-orchestrator`.
 
+## Інфраструктура як код (infra/)
+
+Terraform створює сервер, Ansible налаштовує його як Docker-хост (UFW, SSH без паролів, fail2ban, Docker Engine + Compose). Terraform сам генерує `infra/ansible/inventory.ini`.
+
+| Каталог | Ціль | Стан |
+|---|---|---|
+| `infra/terraform/kvm` | KVM/QEMU через libvirt (WSL2), NAT-мережа `10.40.1.0/24` | застосовується |
+| `infra/terraform/azure` | Azure: VNet, NSG, Public IP, VM Ubuntu 24.04 | валідується в CI |
+
+```bash
+# у WSL2 (потрібні terraform, ansible, libvirt)
+cd infra/terraform/kvm && terraform init && terraform apply
+cd ../../ansible && ansible-playbook playbook.yml     # повторний запуск: changed=0
+cd ../terraform/kvm && terraform destroy
+```
+
+Стан Terraform (`*.tfstate`) і `terraform.tfvars` не комітяться. Рішення: [ADR-0006](docs/adr/0006-iac-terraform-ansible.md).
+
 ## Стан за лабораторними
 
 - [x] Лаба 1 — аналіз, вимоги, C4, ADR-0001…0003
 - [x] Лаба 2 — контейнеризація, Docker Compose, 12-Factor, ADR-0004
 - [x] Лаба 3 — CI: GitHub Actions, Quality Gates, Trivy, GHCR, ADR-0005
-- [ ] Лаба 4 — Kubernetes, IaC, sandbox у gVisor
+- [x] Лаба 4 — IaC: Terraform (KVM, Azure), Ansible, ADR-0006
 - [ ] Лаба 5 — моніторинг та спостережуваність
