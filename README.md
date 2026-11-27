@@ -79,7 +79,8 @@ server/orchestrator/ Runner Orchestrator + Dockerfile
 shared/contracts/    спільні DTO
 docs/adr/            Architecture Decision Records
 infra/terraform/     Terraform: kvm (локальна VM) і azure
-infra/ansible/       Ansible: налаштування Docker-хоста
+infra/ansible/       Ansible: налаштування Docker-хоста, GitHub runner
+deploy/              production-стек (compose, Caddy), моніторинг, скрипт деплою
 docs/architecture/   діаграми C4 / Deployment
 docker-compose.yml   локальне середовище
 .env.example         шаблон конфігурації
@@ -96,6 +97,8 @@ docker-compose.yml   локальне середовище
 | 2 | iOS | тести на iOS-симуляторі, iOS-фреймворк (macOS) |
 | 3 | Security scan | Trivy: залежності (`gradle.lockfile`), конфігурації, секрети |
 | 4 | Build, scan & push | Docker-образ → Trivy → GHCR (`sha-<commit>`, SemVer) |
+| 4 | IaC validate | `terraform validate` (kvm, azure), `ansible-lint` |
+| 5 | Deploy | лише `main`: self-hosted runner у VM → `deploy/scripts/deploy.sh` → smoke test |
 
 Образи: `ghcr.io/vladdev-git/labrunner-api`, `ghcr.io/vladdev-git/labrunner-orchestrator`.
 
@@ -117,10 +120,23 @@ cd ../terraform/kvm && terraform destroy
 
 Стан Terraform (`*.tfstate`) і `terraform.tfvars` не комітяться. Рішення: [ADR-0006](docs/adr/0006-iac-terraform-ansible.md).
 
+## Розгортання та моніторинг (deploy/)
+
+Після злиття в `main` джоба **Deploy** (environment `production`) на self-hosted runner у VM виконує `deploy/scripts/deploy.sh`: розгортає образи `sha-<commit>` з GHCR і перевіряє `/health` та наскрізну здачу.
+
+| Сервіс | Призначення |
+|---|---|
+| `proxy` (Caddy) | єдиний вхід на порт 80: API, `/grafana/`; `/metrics` закрито |
+| `prometheus` | збір метрик: API, Orchestrator, Node Exporter, cAdvisor |
+| `node-exporter`, `cadvisor` | метрики хоста та контейнерів |
+| `grafana` | дашборди `LabRunner — Service RED & Containers`, `Node Exporter Full`; алерти в Telegram |
+
+Секрети — у GitHub Environment `production`. Рішення: [ADR-0007](docs/adr/0007-cd-and-observability.md).
+
 ## Стан за лабораторними
 
 - [x] Лаба 1 — аналіз, вимоги, C4, ADR-0001…0003
 - [x] Лаба 2 — контейнеризація, Docker Compose, 12-Factor, ADR-0004
 - [x] Лаба 3 — CI: GitHub Actions, Quality Gates, Trivy, GHCR, ADR-0005
 - [x] Лаба 4 — IaC: Terraform (KVM, Azure), Ansible, ADR-0006
-- [ ] Лаба 5 — моніторинг та спостережуваність
+- [x] Лаба 5 — CD (self-hosted runner, smoke test), Prometheus, Grafana, алерти в Telegram, ADR-0007
