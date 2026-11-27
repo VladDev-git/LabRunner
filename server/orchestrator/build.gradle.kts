@@ -42,6 +42,7 @@ dependencies {
     // Jackson, BouncyCastle and Guava from the MinIO SDK, snappy from Lettuce).
     implementation(platform(libs.netty.bom))
     implementation(platform(libs.jackson.bom))
+    implementation(platform(libs.micrometer.bom))
     constraints {
         implementation(libs.bouncycastle.bcprov) { because("CVE-2025-14813 and others, fixed in 1.85+") }
         implementation(libs.guava) { because("vulnerable versions come from the MinIO SDK") }
