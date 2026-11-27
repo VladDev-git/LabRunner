@@ -1,5 +1,6 @@
-# LabRunner CI: quality gates for every Pull Request into main,
-# immutable images in GHCR for every commit on main and every SemVer tag.
+# LabRunner CI/CD: quality gates for every Pull Request into main,
+# immutable images in GHCR for every commit on main and every SemVer tag,
+# automatic deployment of main to the VM with a post-deploy smoke test.
 name: LabRunner CI
 
 on:
@@ -14,10 +15,11 @@ on:
 permissions:
   contents: read
 
-# A new push to the same PR cancels the outdated run.
+# A new push to the same PR cancels the outdated run; runs on main are never
+# cancelled half-way (they deploy).
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   JAVA_VERSION: "21"
@@ -247,3 +249,36 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.service }}
+
+  # ---------- Stage 5: Continuous Deployment to the VM ----------
+  # Only for commits on main, only after every quality gate and image publication.
+  # Runs on the self-hosted runner inside the VM (installed by Ansible, ADR-0007):
+  # the VM is in an isolated network that GitHub-hosted runners cannot reach.
+  deploy:
+    name: Deploy to LabRunner VM & smoke test
+    needs: [image, ios, iac]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, labrunner-vm]
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: http://10.40.1.10/
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: deploy
+      - name: Deploy immutable images sha-<commit> and run smoke test
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GRAFANA_ANONYMOUS_VIEWER: ${{ vars.GRAFANA_ANONYMOUS_VIEWER }}
+        run: |
+          export IMAGE_TAG="sha-${GITHUB_SHA::7}"
+          bash deploy/scripts/deploy.sh
