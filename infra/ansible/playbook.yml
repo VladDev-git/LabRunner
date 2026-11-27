@@ -1,0 +1,18 @@
+---
+# Configures a clean Ubuntu 24.04 VM (created by Terraform) as a Docker host for LabRunner.
+# Idempotent: a second run must report changed=0.
+- name: Configure LabRunner Docker host
+  hosts: webservers
+  become: true
+  gather_facts: true
+
+  vars:
+    app_user: "{{ ansible_user }}"
+    app_root: /opt/labrunner
+    allowed_tcp_ports: [22, 80, 443]
+
+  roles:
+    - role: common
+    - role: hardening
+    - role: docker
+    - role: app_layout

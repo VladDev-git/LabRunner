@@ -1,0 +1,28 @@
+---
+# Directory layout for the Docker Compose deployment of LabRunner (next lab).
+- name: Create application directories
+  ansible.builtin.file:
+    path: "{{ app_root }}/{{ item }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: docker
+    mode: "0750"
+  loop:
+    - ""
+    - compose
+    - config
+    - backups
+    - logs
+
+- name: Describe the host for operators
+  ansible.builtin.copy:
+    dest: "{{ app_root }}/README.txt"
+    content: |
+      LabRunner host — configured by Ansible (infra/ansible), do not change by hand.
+      compose/  docker-compose.yml and .env of the stack
+      config/   service configuration
+      backups/  database dumps
+      logs/     exported logs
+    owner: "{{ app_user }}"
+    group: docker
+    mode: "0640"

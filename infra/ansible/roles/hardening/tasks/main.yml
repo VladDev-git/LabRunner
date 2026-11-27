@@ -1,0 +1,56 @@
+---
+# Defence in depth: the Azure NSG filters traffic in the cloud, UFW filters it on the host.
+- name: UFW denies incoming traffic by default
+  community.general.ufw:
+    direction: incoming
+    default: deny
+
+- name: UFW allows outgoing traffic
+  community.general.ufw:
+    direction: outgoing
+    default: allow
+
+- name: UFW allows only the required TCP ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ allowed_tcp_ports }}"
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+
+- name: Harden SSH daemon
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/10-labrunner.conf
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin no
+      MaxAuthTries 3
+      X11Forwarding no
+    owner: root
+    group: root
+    mode: "0644"
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Restart ssh
+
+- name: Protect SSH with fail2ban
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.d/sshd.local
+    content: |
+      [sshd]
+      enabled = true
+      maxretry = 5
+      bantime = 1h
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart fail2ban
+
+- name: Fail2ban is running
+  ansible.builtin.service:
+    name: fail2ban
+    state: started
+    enabled: true
