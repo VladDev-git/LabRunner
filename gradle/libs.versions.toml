@@ -12,7 +12,7 @@ hikari = "6.3.3"
 lettuce = "6.9.0.RELEASE"
 minio = "8.6.0"
 logback = "1.5.38"
-micrometer = "1.15.5"
+micrometer = "1.15.12"
 ktlint-gradle = "13.1.0"
 testcontainers = "2.0.5"
 junit = "5.12.2"
@@ -47,6 +47,7 @@ minio = { module = "io.minio:minio", version.ref = "minio" }
 logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 ktor-server-metrics-micrometer = { module = "io.ktor:ktor-server-metrics-micrometer", version.ref = "ktor" }
 micrometer-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer" }
+micrometer-bom = { module = "io.micrometer:micrometer-bom", version.ref = "micrometer" }
 
 # Security pins for vulnerable transitive dependencies
 netty-bom = { module = "io.netty:netty-bom", version.ref = "netty" }
