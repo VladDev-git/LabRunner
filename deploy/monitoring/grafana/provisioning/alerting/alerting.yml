@@ -1,0 +1,177 @@
+apiVersion: 1
+
+# Telegram credentials come from the container environment (GitHub environment secrets),
+# never from this file.
+contactPoints:
+  - orgId: 1
+    name: telegram
+    receivers:
+      - uid: telegram-labrunner
+        type: telegram
+        disableResolveMessage: false
+        settings:
+          bottoken: $TELEGRAM_BOT_TOKEN
+          chatid: $TELEGRAM_CHAT_ID
+          parse_mode: HTML
+
+policies:
+  - orgId: 1
+    receiver: telegram
+    group_by: ["alertname"]
+    group_wait: 10s
+    group_interval: 1m
+    repeat_interval: 4h
+
+groups:
+  - orgId: 1
+    name: labrunner-availability
+    folder: LabRunner
+    interval: 10s
+    rules:
+      - uid: labrunner-api-down
+        title: LabRunner API Down
+        condition: C
+        for: 30s
+        noDataState: Alerting
+        execErrState: Alerting
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: Core API is not reachable by Prometheus (up == 0).
+          description: Check `docker ps` on the VM and the logs of labrunner-api.
+        data:
+          - refId: A
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: up{job="labrunner-api"}
+              instant: true
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+
+      - uid: labrunner-orchestrator-down
+        title: LabRunner Orchestrator Down
+        condition: C
+        for: 30s
+        noDataState: Alerting
+        execErrState: Alerting
+        labels:
+          severity: critical
+          service: orchestrator
+        annotations:
+          summary: Runner Orchestrator is not reachable by Prometheus; submissions are not checked.
+        data:
+          - refId: A
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: up{job="labrunner-orchestrator"}
+              instant: true
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+
+  - orgId: 1
+    name: labrunner-slo
+    folder: LabRunner
+    interval: 30s
+    rules:
+      - uid: labrunner-api-5xx
+        title: LabRunner API 5xx error rate > 5%
+        condition: C
+        for: 2m
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: More than 5% of API requests fail with 5xx.
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: >-
+                (sum(rate(ktor_http_server_requests_seconds_count{job="labrunner-api",status=~"5.."}[5m])) or vector(0))
+                / clamp_min(sum(rate(ktor_http_server_requests_seconds_count{job="labrunner-api"}[5m])), 1e-9)
+              instant: true
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0.05] }
+
+      - uid: labrunner-backlog
+        title: LabRunner check backlog > 50
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: warning
+          service: orchestrator
+        annotations:
+          summary: More than 50 submissions are waiting for a check (deadline peak?).
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: sum(labrunner_submissions_backlog{job="labrunner-api"})
+              instant: true
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [50] }
