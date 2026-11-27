@@ -25,16 +25,22 @@ import java.time.Duration
 class ApiMetrics(
     database: Database,
 ) {
-    val registry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
+    // Common tags must be configured before the first meter is registered, otherwise
+    // the meters registered earlier silently lose them.
+    val registry =
+        PrometheusMeterRegistry(PrometheusConfig.DEFAULT).apply {
+            config().commonTags("service", "api")
+        }
 
-    private val submissionsCreated: Counter =
+    // Not "...created": the Prometheus client reserves the `_created` suffix (OpenMetrics)
+    // and would export the counter as `labrunner_submissions_total`.
+    private val submissionsAccepted: Counter =
         Counter
-            .builder("labrunner.submissions.created")
+            .builder("labrunner.submissions.accepted")
             .description("Submissions accepted by the API")
             .register(registry)
 
     init {
-        registry.config().commonTags("service", "api")
         // Backlog read from the database on every scrape (every 15 s).
         for (status in listOf("QUEUED", "RUNNING")) {
             Gauge
@@ -45,7 +51,7 @@ class ApiMetrics(
         }
     }
 
-    fun submissionCreated() = submissionsCreated.increment()
+    fun submissionAccepted() = submissionsAccepted.increment()
 
     fun scrape(): String = registry.scrape()
 }

@@ -129,7 +129,7 @@ fun Application.module(
                 // between the two steps never loses an accepted submission.
                 val submission = database.createSubmission(valid.assignmentId, valid.studentName, valid.repoUrl, valid.sourceCode)
                 val messageId = queue.publish(submission.id)
-                metrics.submissionCreated()
+                metrics.submissionAccepted()
                 log.info("Submission {} queued as stream message {}", submission.id, messageId)
                 call.respond(HttpStatusCode.Accepted, submission)
             }

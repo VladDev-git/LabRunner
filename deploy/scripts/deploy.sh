@@ -18,11 +18,16 @@ COMPOSE=(docker compose --project-directory "$DEST" -f "$DEST/docker-compose.pro
 
 log() { printf '\n==> %s\n' "$*"; }
 
+config_sum() { (cd "$DEST" && find Caddyfile monitoring -type f -print0 2>/dev/null | sort -z | xargs -0r sha256sum | sha256sum) || true; }
+
 log "Deploying LabRunner $IMAGE_TAG to $DEST"
-mkdir -p "$DEST"
+mkdir -p "$DEST/monitoring"
+before=$(config_sum)
 # Copy the stack definition (compose, proxy, monitoring); .env is generated below.
+# Copy *into* the existing directories: proxy, Prometheus and Grafana bind-mount them, and a
+# mount keeps pointing at the old inode if the directory is deleted and created again (lab 5).
 cp "$SRC/docker-compose.prod.yml" "$SRC/Caddyfile" "$DEST/"
-rm -rf "$DEST/monitoring" && cp -r "$SRC/monitoring" "$DEST/monitoring"
+cp -r "$SRC/monitoring/." "$DEST/monitoring/"
 
 # Community dashboard "Node Exporter Full" (grafana.com ID 1860), fetched at deploy time.
 NODE_DASH="$DEST/monitoring/grafana/dashboards/node-exporter-full.json"
@@ -31,6 +36,8 @@ if curl -fsSL --retry 3 https://grafana.com/api/dashboards/1860/revisions/latest
 else
   echo "warning: could not download dashboard 1860, continuing without it"
 fi
+config_changed=false
+[ "$before" = "$(config_sum)" ] || config_changed=true
 
 # Secrets come from the GitHub environment "production" and are written only here (mode 600).
 log "Writing $DEST/.env"
@@ -61,6 +68,13 @@ done
 
 log "Starting the stack (waits until every service is healthy)"
 "${COMPOSE[@]}" up -d --remove-orphans --wait --wait-timeout 180
+# `up` recreates a container only when its image or compose definition changed; Caddy,
+# Prometheus and Grafana read their config files only at start-up.
+if [ "$config_changed" = true ]; then
+  log "Proxy/monitoring configuration changed: restarting proxy, prometheus, grafana"
+  "${COMPOSE[@]}" restart proxy prometheus grafana
+  "${COMPOSE[@]}" up -d --wait --wait-timeout 120
+fi
 "${COMPOSE[@]}" ps --format 'table {{.Name}}\t{{.Image}}\t{{.Status}}'
 
 # ---------- Post-deploy smoke test ----------

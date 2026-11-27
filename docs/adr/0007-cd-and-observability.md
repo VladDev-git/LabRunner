@@ -20,7 +20,7 @@
 
 ### Спостережуваність
 1. **Prometheus** (pull-модель, інтервал 15 с, зберігання 7 днів) збирає 5 таргетів у внутрішній мережі `monitoring-net`: сам себе, Core API, Orchestrator, Node Exporter (хост), cAdvisor (контейнери).
-2. **Метрики застосунку** (Micrometer): RED для HTTP (`ktor_http_server_requests_seconds` з гістограмою для p95/p99), JVM, бізнес-метрики — прийняті здачі, черга перевірок (`labrunner_submissions_backlog`), результати й тривалість перевірок. Ендпоінти `/metrics` не публікуються: Caddy повертає 404 ззовні.
+2. **Метрики застосунку** (Micrometer): RED для HTTP (`ktor_http_server_requests_seconds` з гістограмою для p95/p99), JVM, бізнес-метрики — прийняті здачі (`labrunner_submissions_accepted_total`), черга перевірок (`labrunner_submissions_backlog`), результати й тривалість перевірок. Ендпоінти `/metrics` не публікуються: Caddy повертає 404 ззовні.
 3. **Grafana** з provisioning як код: джерело даних, дашборди (`LabRunner — Service RED & Containers` і спільнотний `Node Exporter Full`), правила алертів, контакт Telegram. Доступна через reverse proxy за `/grafana/`; анонімний доступ лише на читання вмикається змінною середовища тільки в ізольованій лабораторній мережі.
 4. **Алерти** (Grafana Alerting → Telegram Bot API): API Down і Orchestrator Down (`up < 1` протягом 30 с, оцінка кожні 10 с), частка 5xx > 5 % (2 хв), черга > 50 (5 хв). Повідомлення про відновлення (Resolved) увімкнені.
 5. **Логи:** драйвер `json-file` з ротацією (`max-size 10m`, `max-file 3`) для всіх контейнерів; додатково `daemon.json` від Ansible. Централізований збір логів (Loki) — наступний крок.
