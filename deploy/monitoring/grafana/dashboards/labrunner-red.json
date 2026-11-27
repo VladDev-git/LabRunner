@@ -442,7 +442,7 @@
                                                               "type":  "prometheus",
                                                               "uid":  "prometheus"
                                                           },
-                                           "expr":  "sum(rate(labrunner_submissions_created_total[5m])) * 60",
+                                           "expr":  "sum(rate(labrunner_submissions_accepted_total[5m])) * 60",
                                            "refId":  "A",
                                            "range":  true
                                        }

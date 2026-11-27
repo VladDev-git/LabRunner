@@ -14,7 +14,11 @@ import java.time.Duration
 
 /** Prometheus metrics of the Runner Orchestrator, exposed on the health port at /metrics. */
 class OrchestratorMetrics {
-    val registry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
+    // Common tags before the first meter, so the timer and counters below get them too.
+    val registry =
+        PrometheusMeterRegistry(PrometheusConfig.DEFAULT).apply {
+            config().commonTags("service", "orchestrator")
+        }
 
     private val checkDuration: Timer =
         Timer
@@ -35,7 +39,6 @@ class OrchestratorMetrics {
         }
 
     init {
-        registry.config().commonTags("service", "orchestrator")
         listOf(JvmMemoryMetrics(), JvmGcMetrics(), JvmThreadMetrics(), ProcessorMetrics(), UptimeMetrics())
             .forEach { it.bindTo(registry) }
     }
