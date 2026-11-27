@@ -16,3 +16,5 @@
     - role: hardening
     - role: docker
     - role: app_layout
+    - role: github_runner
+      tags: [runner]

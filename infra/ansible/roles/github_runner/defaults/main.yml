@@ -1,0 +1,12 @@
+---
+github_runner_version: "2.338.2"
+# SHA256 of actions-runner-linux-x64-<version>.tar.gz from the GitHub release notes.
+github_runner_sha256: "baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40"
+github_runner_dir: /opt/actions-runner
+github_runner_user: "{{ app_user }}"
+github_runner_repo_url: https://github.com/VladDev-git/LabRunner
+github_runner_name: labrunner-vm
+github_runner_labels: labrunner-vm
+# Short-lived registration token, passed on the command line only:
+#   -e github_runner_token=$(gh api -X POST repos/OWNER/REPO/actions/runners/registration-token --jq .token)
+github_runner_token: ""
