@@ -41,9 +41,11 @@ fun main() {
     val storage = ReportStorage(config)
     storage.ensureBucket()
 
+    val metrics = ApiMetrics(database)
+
     val server =
         embeddedServer(Netty, port = config.port, host = "0.0.0.0") {
-            module(config, database, queue, storage)
+            module(config, database, queue, storage, metrics)
         }
 
     // Factor IX (disposability): on SIGTERM / SIGINT finish in-flight requests,
@@ -64,7 +66,9 @@ fun Application.module(
     database: Database,
     queue: SubmissionQueue,
     storage: ReportStorage,
+    metrics: ApiMetrics,
 ) {
+    installMetrics(metrics)
     install(ContentNegotiation) {
         json(
             Json {
@@ -75,7 +79,7 @@ fun Application.module(
     }
     install(CallLogging) {
         level = Level.INFO
-        filter { it.request.path() != "/health" }
+        filter { it.request.path() !in setOf("/health", "/metrics") }
     }
     install(StatusPages) {
         exception<IllegalArgumentException> { call, e ->
@@ -102,6 +106,11 @@ fun Application.module(
             )
         }
 
+        // Prometheus scrape endpoint (internal network only; the reverse proxy does not expose it).
+        get("/metrics") {
+            call.respondText(metrics.scrape(), ContentType.parse("text/plain; version=0.0.4; charset=utf-8"))
+        }
+
         route("/api/v1") {
             get("/assignments") { call.respond(database.listAssignments()) }
 
@@ -120,6 +129,7 @@ fun Application.module(
                 // between the two steps never loses an accepted submission.
                 val submission = database.createSubmission(valid.assignmentId, valid.studentName, valid.repoUrl, valid.sourceCode)
                 val messageId = queue.publish(submission.id)
+                metrics.submissionCreated()
                 log.info("Submission {} queued as stream message {}", submission.id, messageId)
                 call.respond(HttpStatusCode.Accepted, submission)
             }

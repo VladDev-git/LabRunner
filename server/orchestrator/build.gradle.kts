@@ -36,6 +36,7 @@ dependencies {
     implementation(libs.lettuce)
     implementation(libs.minio)
     implementation(libs.logback)
+    implementation(libs.micrometer.prometheus)
 
     // Security: raise vulnerable transitive dependencies (Netty from Ktor/Lettuce,
     // Jackson, BouncyCastle and Guava from the MinIO SDK, snappy from Lettuce).

@@ -151,6 +151,20 @@ class Database(
 
     fun findSubmission(id: UUID): SubmissionDto? = tx { c -> selectSubmissions(c, "s.id = ?", listOf(id)).firstOrNull() }
 
+    /** Number of submissions in the given status; used by the backlog gauge (metrics). */
+    fun countByStatus(status: String): Int =
+        runCatching {
+            tx { c ->
+                c.prepareStatement("SELECT count(*) FROM submissions WHERE status = ?").use { ps ->
+                    ps.setString(1, status)
+                    ps.executeQuery().use { rs ->
+                        rs.next()
+                        rs.getInt(1)
+                    }
+                }
+            }
+        }.getOrDefault(-1)
+
     fun reportKey(id: UUID): String? =
         tx { c ->
             c.prepareStatement("SELECT report_key FROM submissions WHERE id = ?").use { ps ->

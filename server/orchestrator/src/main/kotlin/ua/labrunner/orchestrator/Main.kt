@@ -36,6 +36,7 @@ fun main() {
     val config = OrchestratorConfig.fromEnv()
     val repository = SubmissionRepository(config)
     val runner = SimulatedRunner()
+    val metrics = OrchestratorMetrics()
 
     val s3 =
         MinioClient
@@ -87,6 +88,13 @@ fun main() {
                 ex.sendResponseHeaders(if (alive) 200 else 503, body.size.toLong())
                 ex.responseBody.use { it.write(body) }
             }
+            // Prometheus scrape endpoint (internal network only).
+            createContext("/metrics") { ex ->
+                val body = metrics.scrape().toByteArray()
+                ex.responseHeaders.add("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+                ex.sendResponseHeaders(200, body.size.toLong())
+                ex.responseBody.use { it.write(body) }
+            }
             start()
         }
 
@@ -125,9 +133,12 @@ fun main() {
                 }
             for (message in messages) {
                 val id = message.body[QueueNames.FIELD_SUBMISSION_ID]
+                val started = Instant.now()
                 runCatching { process(UUID.fromString(id), config, repository, runner, s3) }
+                    .onSuccess { result -> result?.let { metrics.recordCheck(it, Duration.between(started, Instant.now())) } }
                     .onFailure { e ->
                         log.error("Submission {} failed with an internal error", id, e)
+                        metrics.recordCheck(SubmissionStatus.ERROR, Duration.between(started, Instant.now()))
                         runCatching {
                             repository.finish(UUID.fromString(id), SubmissionStatus.ERROR, null, "Внутрішня помилка перевірки", null)
                         }
@@ -147,15 +158,15 @@ private fun process(
     repository: SubmissionRepository,
     runner: SimulatedRunner,
     s3: MinioClient,
-) {
+): SubmissionStatus? {
     val job =
         repository.find(id) ?: run {
             log.warn("Submission {} not found, skipping", id)
-            return
+            return null
         }
     if (job.status.isFinal || !repository.markRunning(id)) {
         log.info("Submission {} is already {}, skipping (idempotent redelivery)", id, job.status)
-        return
+        return null
     }
     log.info("Checking submission {} ({})", id, job.language)
 
@@ -180,4 +191,5 @@ private fun process(
     val summary = "Пройдено перевірок: $passed з ${report.checks.size}"
     repository.finish(id, status, report.score, summary, key)
     log.info("Submission {} -> {} ({}/{})", id, status, report.score, report.maxScore)
+    return status
 }
