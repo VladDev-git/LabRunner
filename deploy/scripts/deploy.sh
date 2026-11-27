@@ -75,6 +75,10 @@ echo "$health" | jq -e --arg v "$IMAGE_TAG" '.status == "UP" and .version == $v'
   || { echo "health check failed or wrong version deployed"; "${COMPOSE[@]}" logs --tail 50 api; exit 1; }
 echo "HTTP 200, status UP, version $IMAGE_TAG"
 
+code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE_URL/metrics")
+[ "$code" = "404" ] || { echo "/metrics must not be public, got HTTP $code"; exit 1; }
+echo "/metrics is not exposed by the proxy (HTTP 404)"
+
 log "Smoke test 2/2: submission goes through API -> Redis -> Orchestrator -> S3"
 assignment=$(curl -fsS "$BASE_URL/api/v1/assignments" | jq '.[0].id')
 created=$(curl -fsS -X POST "$BASE_URL/api/v1/submissions" -H 'Content-Type: application/json' \
