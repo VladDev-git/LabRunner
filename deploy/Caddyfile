@@ -3,8 +3,11 @@
 	encode gzip
 
 	# Metrics are scraped by Prometheus inside monitoring-net; never expose them outside.
-	@metrics path /metrics /metrics/*
-	respond @metrics 404
+	# Must be a `handle` block: a bare `respond` runs after `handle` in Caddy's directive
+	# order, so the catch-all proxy below would answer /metrics first (found in lab 5).
+	handle /metrics* {
+		respond "Not Found" 404
+	}
 
 	handle /grafana* {
 		reverse_proxy grafana:3000
